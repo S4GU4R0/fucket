@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Redirect, Route } from 'react-router-dom';
 import { IonApp, IonRouterOutlet, setupIonicReact, IonTabs, IonTabBar, IonTabButton, IonLabel, IonIcon, IonContent, IonPage, IonGrid, IonRow, IonCol, IonButton } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
@@ -9,28 +9,19 @@ import Settings from './pages/Settings';
 import Templates from './pages/Templates';
 import Tools from './pages/Tools';
 import { home, document, construct, settings } from 'ionicons/icons';
-import { useFs } from 'use-fs';
 
-/* Core CSS required for Ionic components to work properly */
 import '@ionic/react/css/core.css';
-
-/* Basic CSS for apps built with Ionic */
 import '@ionic/react/css/normalize.css';
 import '@ionic/react/css/structure.css';
 import '@ionic/react/css/typography.css';
-
-/* Optional CSS utils that can be commented out */
 import '@ionic/react/css/padding.css';
 import '@ionic/react/css/float-elements.css';
 import '@ionic/react/css/text-alignment.css';
 import '@ionic/react/css/text-transformation.css';
 import '@ionic/react/css/flex-utils.css';
 import '@ionic/react/css/display.css';
-
-/* Theme variables */
 import './theme/variables.css';
 
-// Matches all Apple devices (Safari/Chrome/Firefox/etc.)
 function isAppleDevice() {
   return /Macintosh|iPad|iPhone|iPod/.test(navigator.userAgent);
 }
@@ -40,26 +31,83 @@ setupIonicReact({
 });
 
 const App: React.FC = () => {
-  // Use the hook at the top level
-  const {
-    files,
-    requestPermission,
-    granted,
-    error
-  } = useFs({
-    type: 'directory',
-    id: 'budget-app-directory'
-  });
+  const [directoryHandle, setDirectoryHandle] = useState(null);
+  const [files, setFiles] = useState([]);
+  const [error, setError] = useState(null);
 
-  // Example: Log files when access is granted
-  useEffect(() => {
-    if (granted && files) {
-      console.log('Access granted to directory. Files:', files);
+  const requestDirectoryAccess = async () => {
+    try {
+      const handle = await window.showDirectoryPicker({
+        id: 'budget-app-directory',
+        mode: 'readwrite'
+      });
+
+      setDirectoryHandle(handle);
+      loadFiles(handle);
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        setError('Failed to access directory: ' + err.message);
+      }
     }
-  }, [granted, files]);
+  };
 
-  // If permission is not granted, render a page asking for it
-  if (!granted) {
+  const loadFiles = async (handle) => {
+    try {
+      const fileHandles = [];
+      for await (const entry of handle.entries()) {
+        const name = entry[0];
+        const fileHandle = entry[1];
+        if (fileHandle.kind === 'file' && name.endsWith('.csv')) {
+          fileHandles.push(fileHandle);
+        }
+      }
+      setFiles(fileHandles);
+    } catch (err) {
+      setError('Failed to load files: ' + err.message);
+    }
+  };
+
+  const saveCSV = async (filename, content) => {
+    if (!directoryHandle) return;
+
+    try {
+      const fileHandle = await directoryHandle.getFileHandle(filename, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(content);
+      await writable.close();
+
+      await saveToIndexedDB(filename, content);
+
+      loadFiles(directoryHandle);
+    } catch (err) {
+      setError('Failed to save file: ' + err.message);
+    }
+  };
+
+  const saveToIndexedDB = async (filename, content) => {
+    const db = await openDB();
+    const tx = db.transaction(['csvFiles'], 'readwrite');
+    const store = tx.objectStore('csvFiles');
+    await store.put({ filename, content, lastModified: Date.now() });
+  };
+
+  const openDB = () => {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open('BudgetAppDB', 1);
+
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
+
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains('csvFiles')) {
+          db.createObjectStore('csvFiles', { keyPath: 'filename' });
+        }
+      };
+    });
+  };
+
+  if (!directoryHandle) {
     return (
       <IonApp>
         <IonPage>
@@ -67,15 +115,19 @@ const App: React.FC = () => {
             <IonGrid className="ion-align-items-center ion-justify-content-center">
               <IonRow>
                 <IonCol size="12">
-                  <h1>File Access Required</h1>
+                  <h1>Directory Access Required</h1>
                   <p>
                     This app requires access to a directory to store and retrieve your budget files.
                     Please grant persistent access to continue.
                   </p>
-                  <IonButton expand="block" onClick={requestPermission}>
-                    Grant File Access
+                  <IonButton expand="block" onClick={requestDirectoryAccess}>
+                    Select Directory
                   </IonButton>
-                  {error && <p style={{ color: 'red' }}>Error: {error.message}</p>}
+                  {error && (
+                    <p style={{ color: 'red', marginTop: '1rem' }}>
+                      {error}
+                    </p>
+                  )}
                 </IonCol>
               </IonRow>
             </IonGrid>
@@ -85,16 +137,20 @@ const App: React.FC = () => {
     );
   }
 
-  // If permission is granted, render the main app
   return (
     <IonApp>
       <IonReactRouter>
         <IonTabs>
           <IonRouterOutlet>
+            <Route exact path="/home">
+              <Home files={files} saveCSV={saveCSV} />
+            </Route>
             <Route exact path="/budgets">
               <Budgets />
             </Route>
-            <Route exact path="/budgets/:id" component={BudgetDetails} />
+            <Route path="/budget/:id">
+              <BudgetDetails />
+            </Route>
             <Route exact path="/templates">
               <Templates />
             </Route>
@@ -105,17 +161,17 @@ const App: React.FC = () => {
               <Settings />
             </Route>
             <Route exact path="/">
-              <Home />
+              <Redirect to="/home" />
             </Route>
           </IonRouterOutlet>
           <IonTabBar slot="bottom">
-            <IonTabButton tab="budgets" href="/budgets">
+            <IonTabButton tab="home" href="/home">
               <IonIcon icon={home} />
-              <IonLabel>Budgets</IonLabel>
+              <IonLabel>Home</IonLabel>
             </IonTabButton>
-            <IonTabButton tab="templates" href="/templates">
+            <IonTabButton tab="budgets" href="/budgets">
               <IonIcon icon={document} />
-              <IonLabel>Templates</IonLabel>
+              <IonLabel>Budgets</IonLabel>
             </IonTabButton>
             <IonTabButton tab="tools" href="/tools">
               <IonIcon icon={construct} />
