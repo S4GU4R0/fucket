@@ -33,8 +33,6 @@ const Budgets: React.FC = () => {
     modal.current?.dismiss(input.current?.value, 'confirm');
   }
 
-  function onWillDismiss(event: CustomEvent<OverlayEventDetail>) {
-  }
   return (
     <IonPage>
       <IonHeader>
@@ -50,7 +48,7 @@ const Budgets: React.FC = () => {
           {
             testData.map(budget => {
               return (
-                <IonItem routerLink={`/budgets/${budget.id}`}>
+                <IonItem key={budget.id} routerLink={`/budgets/${budget.id}`}>
                   <IonLabel>{budget.name}</IonLabel>
                 </IonItem>
               )
