@@ -34,6 +34,14 @@ const App = () => {
   const [files, setFiles] = useState([]);
   const [dbReady, setDbReady] = useState(false);
 
+  // Add visible error display and logging
+  const [error, setError] = useState(null);
+  const [logs, setLogs] = useState([]);
+
+  const addLog = (message) => {
+    setLogs(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`]);
+  };
+
   // Initialize IndexedDB on app start
   useEffect(() => {
     initDB();
@@ -41,15 +49,19 @@ const App = () => {
 
   const initDB = async () => {
     try {
+      addLog('Starting DB initialization');
       const db = await openDB();
+      addLog('DB opened successfully');
       const tx = db.transaction(['csvFiles'], 'readonly');
       const store = tx.objectStore('csvFiles');
       const allFiles = await getAllFromStore(store);
+      addLog(`Found ${allFiles.length} files`);
       setFiles(allFiles);
       setDbReady(true);
     } catch (error) {
-      console.error('Failed to initialize DB:', error);
-      setDbReady(true); // Still allow app to work
+      addLog('DB init failed: ' + error.message);
+      setError('Failed to initialize storage: ' + error.message);
+      setDbReady(true);
     }
   };
 
@@ -157,6 +169,10 @@ const App = () => {
                 <IonCol size="12">
                   <h1>Loading...</h1>
                   <p>Initializing app storage...</p>
+                  {error && <p style={{ color: 'red' }}>{error}</p>}
+                  <div style={{ textAlign: 'left', fontSize: '12px', marginTop: '20px' }}>
+                    {logs.map((log, i) => <div key={i}>{log}</div>)}
+                  </div>
                 </IonCol>
               </IonRow>
             </IonGrid>
@@ -172,13 +188,7 @@ const App = () => {
         <IonTabs>
           <IonRouterOutlet>
             <Route exact path="/home">
-              <Home
-                files={files}
-                saveCSV={saveCSV}
-                loadCSV={loadCSV}
-                onFileUpload={handleFileUpload}
-                onDownload={downloadCSV}
-              />
+              <Home />
             </Route>
             <Route exact path="/budgets">
               <Budgets />
