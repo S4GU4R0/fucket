@@ -20,6 +20,7 @@ import "./BudgetDetails.css";
 interface BudgetDetailsProps extends RouteComponentProps<{ id: string }> { }
 
 const BudgetDetails: React.FC<BudgetDetailsProps> = ({ match }) => {
+const testData = [{ name: "Test Budget" }]
     return (
         <IonPage>
             <IonHeader>
@@ -27,7 +28,7 @@ const BudgetDetails: React.FC<BudgetDetailsProps> = ({ match }) => {
                     <IonButtons slot="start">
                         <IonBackButton text={`Budgets`} />
                     </IonButtons>
-                    <IonTitle>Budgets</IonTitle>
+                    <IonTitle>{`${testData[0].name}`}</IonTitle>
                 </IonToolbar>
             </IonHeader>
             <IonContent fullscreen>

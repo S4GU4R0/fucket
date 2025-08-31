@@ -7,6 +7,7 @@ import {
   IonFooter,
   IonGrid,
   IonHeader,
+  IonIcon,
   IonInput,
   IonItem,
   IonItemOption,
@@ -24,6 +25,8 @@ import React, { useState, useRef } from 'react';
 import { OverlayEventDetail } from '@ionic/core/components';
 import "./Budgets.css";
 import { nanoid } from 'nanoid';
+import { ellipsisVerticalSharp as ellipsesIcon } from 'ionicons/icons';
+
 const Budgets: React.FC = () => {
 
   const testData = [{ id: nanoid(), name: "Test Budget" }]
@@ -48,9 +51,16 @@ const Budgets: React.FC = () => {
           {
             testData.map(budget => {
               return (
-                <IonItem key={budget.id} routerLink={`/budgets/${budget.id}`}>
-                  <IonLabel>{budget.name}</IonLabel>
-                </IonItem>
+                <IonItemSliding>
+                  <IonItem key={budget.id} routerLink={`/budgets/${budget.id}`}>
+                    <IonLabel>{budget.name}</IonLabel>
+
+                  </IonItem>
+                  <IonItemOptions>
+                    <IonItemOption color="primary">Edit</IonItemOption>
+                    <IonItemOption color="danger">Delete</IonItemOption>
+                  </IonItemOptions>
+                </IonItemSliding>
               )
             })
           }
