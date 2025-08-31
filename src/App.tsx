@@ -2,10 +2,12 @@ import React from 'react';
 import { Redirect, Route } from 'react-router-dom';
 import { IonApp, IonRouterOutlet, setupIonicReact, IonTabs, IonTabBar, IonTabButton, IonLabel, IonIcon } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
+import Budgets from './pages/Budgets';
+import BudgetDetails from './pages/BudgetDetails';
 import Home from './pages/Home';
+import Settings from './pages/Settings';
 import Templates from './pages/Templates';
 import Tools from './pages/Tools';
-import Settings from './pages/Settings';
 import { home, document, construct, settings } from 'ionicons/icons';
 
 /* Core CSS required for Ionic components to work properly */
@@ -27,7 +29,14 @@ import '@ionic/react/css/display.css';
 /* Theme variables */
 import './theme/variables.css';
 
-setupIonicReact();
+// Matches all Apple devices (Safari/Chrome/Firefox/etc.)
+function isAppleDevice() {
+  return /Macintosh|iPad|iPhone|iPod/.test(navigator.userAgent);
+}
+
+setupIonicReact({
+  mode: isAppleDevice() ? 'ios' : 'md'
+});
 
 const App: React.FC = () => (
   <IonApp>
@@ -35,8 +44,9 @@ const App: React.FC = () => (
       <IonTabs>
         <IonRouterOutlet>
           <Route exact path="/budgets">
-            <Home />
+            <Budgets />
           </Route>
+          <Route exact path="/budgets/:id" component={BudgetDetails} />
           <Route exact path="/templates">
             <Templates />
           </Route>
@@ -47,7 +57,7 @@ const App: React.FC = () => (
             <Settings />
           </Route>
           <Route exact path="/">
-            <Redirect to="/budgets" />
+            <Home />
           </Route>
         </IonRouterOutlet>
         <IonTabBar slot="bottom">
