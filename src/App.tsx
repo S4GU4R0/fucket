@@ -30,65 +30,27 @@ setupIonicReact({
   mode: isAppleDevice() ? 'ios' : 'md'
 });
 
-const App: React.FC = () => {
-  const [directoryHandle, setDirectoryHandle] = useState(null);
+const App = () => {
   const [files, setFiles] = useState([]);
-  const [error, setError] = useState(null);
+  const [dbReady, setDbReady] = useState(false);
 
-  const requestDirectoryAccess = async () => {
+  // Initialize IndexedDB on app start
+  useEffect(() => {
+    initDB();
+  }, []);
+
+  const initDB = async () => {
     try {
-      const handle = await window.showDirectoryPicker({
-        id: 'budget-app-directory',
-        mode: 'readwrite'
-      });
-
-      setDirectoryHandle(handle);
-      loadFiles(handle);
-    } catch (err) {
-      if (err.name !== 'AbortError') {
-        setError('Failed to access directory: ' + err.message);
-      }
+      const db = await openDB();
+      const tx = db.transaction(['csvFiles'], 'readonly');
+      const store = tx.objectStore('csvFiles');
+      const allFiles = await getAllFromStore(store);
+      setFiles(allFiles);
+      setDbReady(true);
+    } catch (error) {
+      console.error('Failed to initialize DB:', error);
+      setDbReady(true); // Still allow app to work
     }
-  };
-
-  const loadFiles = async (handle) => {
-    try {
-      const fileHandles = [];
-      for await (const entry of handle.entries()) {
-        const name = entry[0];
-        const fileHandle = entry[1];
-        if (fileHandle.kind === 'file' && name.endsWith('.csv')) {
-          fileHandles.push(fileHandle);
-        }
-      }
-      setFiles(fileHandles);
-    } catch (err) {
-      setError('Failed to load files: ' + err.message);
-    }
-  };
-
-  const saveCSV = async (filename, content) => {
-    if (!directoryHandle) return;
-
-    try {
-      const fileHandle = await directoryHandle.getFileHandle(filename, { create: true });
-      const writable = await fileHandle.createWritable();
-      await writable.write(content);
-      await writable.close();
-
-      await saveToIndexedDB(filename, content);
-
-      loadFiles(directoryHandle);
-    } catch (err) {
-      setError('Failed to save file: ' + err.message);
-    }
-  };
-
-  const saveToIndexedDB = async (filename, content) => {
-    const db = await openDB();
-    const tx = db.transaction(['csvFiles'], 'readwrite');
-    const store = tx.objectStore('csvFiles');
-    await store.put({ filename, content, lastModified: Date.now() });
   };
 
   const openDB = () => {
@@ -107,7 +69,85 @@ const App: React.FC = () => {
     });
   };
 
-  if (!directoryHandle) {
+  const getAllFromStore = (store) => {
+    return new Promise((resolve) => {
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => resolve([]);
+    });
+  };
+
+  const saveCSV = async (filename, content) => {
+    try {
+      const db = await openDB();
+      const tx = db.transaction(['csvFiles'], 'readwrite');
+      const store = tx.objectStore('csvFiles');
+
+      const fileData = {
+        filename: filename,
+        content: content,
+        lastModified: Date.now()
+      };
+
+      await new Promise((resolve, reject) => {
+        const request = store.put(fileData);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
+
+      // Update files state
+      const allFiles = await getAllFromStore(store);
+      setFiles(allFiles);
+
+    } catch (error) {
+      console.error('Failed to save CSV:', error);
+    }
+  };
+
+  const loadCSV = async (filename) => {
+    try {
+      const db = await openDB();
+      const tx = db.transaction(['csvFiles'], 'readonly');
+      const store = tx.objectStore('csvFiles');
+
+      return new Promise((resolve, reject) => {
+        const request = store.get(filename);
+        request.onsuccess = () => resolve(request.result?.content || null);
+        request.onerror = () => reject(request.error);
+      });
+    } catch (error) {
+      console.error('Failed to load CSV:', error);
+      return null;
+    }
+  };
+
+  const handleFileUpload = async (event) => {
+    const uploadedFiles = event.target.files;
+    if (!uploadedFiles) return;
+
+    for (const file of uploadedFiles) {
+      try {
+        const content = await file.text();
+        await saveCSV(file.name, content);
+      } catch (error) {
+        console.error('Failed to process file:', file.name, error);
+      }
+    }
+  };
+
+  const downloadCSV = (filename, content) => {
+    const blob = new Blob([content], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  if (!dbReady) {
     return (
       <IonApp>
         <IonPage>
@@ -115,19 +155,8 @@ const App: React.FC = () => {
             <IonGrid className="ion-align-items-center ion-justify-content-center">
               <IonRow>
                 <IonCol size="12">
-                  <h1>Directory Access Required</h1>
-                  <p>
-                    This app requires access to a directory to store and retrieve your budget files.
-                    Please grant persistent access to continue.
-                  </p>
-                  <IonButton expand="block" onClick={requestDirectoryAccess}>
-                    Select Directory
-                  </IonButton>
-                  {error && (
-                    <p style={{ color: 'red', marginTop: '1rem' }}>
-                      {error}
-                    </p>
-                  )}
+                  <h1>Loading...</h1>
+                  <p>Initializing app storage...</p>
                 </IonCol>
               </IonRow>
             </IonGrid>
@@ -143,7 +172,13 @@ const App: React.FC = () => {
         <IonTabs>
           <IonRouterOutlet>
             <Route exact path="/home">
-              <Home files={files} saveCSV={saveCSV} />
+              <Home
+                files={files}
+                saveCSV={saveCSV}
+                loadCSV={loadCSV}
+                onFileUpload={handleFileUpload}
+                onDownload={downloadCSV}
+              />
             </Route>
             <Route exact path="/budgets">
               <Budgets />
