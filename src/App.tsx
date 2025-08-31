@@ -33,6 +33,7 @@ setupIonicReact({
 const App: React.FC = () => {
   const [files, setFiles] = useState<any[]>([]);
   const [dbReady, setDbReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     initDB();
@@ -46,7 +47,8 @@ const App: React.FC = () => {
       const allFiles = await getAllFromStore(store);
       setFiles(allFiles);
       setDbReady(true);
-    } catch (error) {
+    } catch (error: any) {
+      setError(error.message);
       setDbReady(true);
     }
   };
@@ -83,6 +85,7 @@ const App: React.FC = () => {
                 <IonCol size="12">
                   <h1>Loading...</h1>
                   <p>Initializing app storage...</p>
+                  {error && <p style={{ color: 'red' }}>{error}</p>}
                 </IonCol>
               </IonRow>
             </IonGrid>
@@ -103,7 +106,7 @@ const App: React.FC = () => {
             <Route exact path="/budgets">
               <Budgets />
             </Route>
-            <Route path="/budget/:id" render={(props) => <BudgetDetails {...props} />} />
+            <Route path="/budget/:id" component={BudgetDetails} />
             <Route exact path="/templates">
               <Templates />
             </Route>
