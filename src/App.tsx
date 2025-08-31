@@ -30,48 +30,32 @@ setupIonicReact({
   mode: isAppleDevice() ? 'ios' : 'md'
 });
 
-const App = () => {
-  const [files, setFiles] = useState([]);
+const App: React.FC = () => {
+  const [files, setFiles] = useState<any[]>([]);
   const [dbReady, setDbReady] = useState(false);
 
-  // Add visible error display and logging
-  const [error, setError] = useState(null);
-  const [logs, setLogs] = useState([]);
-
-  const addLog = (message) => {
-    setLogs(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`]);
-  };
-
-  // Initialize IndexedDB on app start
   useEffect(() => {
     initDB();
   }, []);
 
   const initDB = async () => {
     try {
-      addLog('Starting DB initialization');
       const db = await openDB();
-      addLog('DB opened successfully');
       const tx = db.transaction(['csvFiles'], 'readonly');
       const store = tx.objectStore('csvFiles');
       const allFiles = await getAllFromStore(store);
-      addLog(`Found ${allFiles.length} files`);
       setFiles(allFiles);
       setDbReady(true);
     } catch (error) {
-      addLog('DB init failed: ' + error.message);
-      setError('Failed to initialize storage: ' + error.message);
       setDbReady(true);
     }
   };
 
-  const openDB = () => {
+  const openDB = (): Promise<IDBDatabase> => {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open('BudgetAppDB', 1);
-
       request.onerror = () => reject(request.error);
       request.onsuccess = () => resolve(request.result);
-
       request.onupgradeneeded = () => {
         const db = request.result;
         if (!db.objectStoreNames.contains('csvFiles')) {
@@ -81,82 +65,12 @@ const App = () => {
     });
   };
 
-  const getAllFromStore = (store) => {
+  const getAllFromStore = (store: IDBObjectStore): Promise<any[]> => {
     return new Promise((resolve) => {
       const request = store.getAll();
       request.onsuccess = () => resolve(request.result || []);
       request.onerror = () => resolve([]);
     });
-  };
-
-  const saveCSV = async (filename, content) => {
-    try {
-      const db = await openDB();
-      const tx = db.transaction(['csvFiles'], 'readwrite');
-      const store = tx.objectStore('csvFiles');
-
-      const fileData = {
-        filename: filename,
-        content: content,
-        lastModified: Date.now()
-      };
-
-      await new Promise((resolve, reject) => {
-        const request = store.put(fileData);
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-      });
-
-      // Update files state
-      const allFiles = await getAllFromStore(store);
-      setFiles(allFiles);
-
-    } catch (error) {
-      console.error('Failed to save CSV:', error);
-    }
-  };
-
-  const loadCSV = async (filename) => {
-    try {
-      const db = await openDB();
-      const tx = db.transaction(['csvFiles'], 'readonly');
-      const store = tx.objectStore('csvFiles');
-
-      return new Promise((resolve, reject) => {
-        const request = store.get(filename);
-        request.onsuccess = () => resolve(request.result?.content || null);
-        request.onerror = () => reject(request.error);
-      });
-    } catch (error) {
-      console.error('Failed to load CSV:', error);
-      return null;
-    }
-  };
-
-  const handleFileUpload = async (event) => {
-    const uploadedFiles = event.target.files;
-    if (!uploadedFiles) return;
-
-    for (const file of uploadedFiles) {
-      try {
-        const content = await file.text();
-        await saveCSV(file.name, content);
-      } catch (error) {
-        console.error('Failed to process file:', file.name, error);
-      }
-    }
-  };
-
-  const downloadCSV = (filename, content) => {
-    const blob = new Blob([content], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
   };
 
   if (!dbReady) {
@@ -169,10 +83,6 @@ const App = () => {
                 <IonCol size="12">
                   <h1>Loading...</h1>
                   <p>Initializing app storage...</p>
-                  {error && <p style={{ color: 'red' }}>{error}</p>}
-                  <div style={{ textAlign: 'left', fontSize: '12px', marginTop: '20px' }}>
-                    {logs.map((log, i) => <div key={i}>{log}</div>)}
-                  </div>
                 </IonCol>
               </IonRow>
             </IonGrid>
@@ -193,9 +103,7 @@ const App = () => {
             <Route exact path="/budgets">
               <Budgets />
             </Route>
-            <Route path="/budget/:id">
-              <BudgetDetails />
-            </Route>
+            <Route path="/budget/:id" render={(props) => <BudgetDetails {...props} />} />
             <Route exact path="/templates">
               <Templates />
             </Route>

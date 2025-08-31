@@ -51,8 +51,8 @@ const Budgets: React.FC = () => {
           {
             testData.map(budget => {
               return (
-                <IonItemSliding>
-                  <IonItem key={budget.id} routerLink={`/budgets/${budget.id}`}>
+                <IonItemSliding key={budget.id}>
+                  <IonItem routerLink={`/budgets/${budget.id}`}>
                     <IonLabel>{budget.name}</IonLabel>
 
                   </IonItem>
