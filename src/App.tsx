@@ -97,7 +97,7 @@ const App: React.FC = () => {
 
   return (
     <IonApp>
-      <IonReactRouter>
+      <IonReactRouter basename="/fucket">
         <IonTabs>
           <IonRouterOutlet>
             <Route exact path="/home">
