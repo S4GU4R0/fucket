@@ -145,7 +145,7 @@ const App: React.FC = () => {
               <Settings />
             </Route>
             <Route exact path="/">
-              <Redirect to="/" />
+              <Home />
             </Route>
           </IonRouterOutlet>
           <IonTabBar slot="bottom">
