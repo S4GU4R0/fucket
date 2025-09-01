@@ -34,48 +34,65 @@ const App: React.FC = () => {
   const [files, setFiles] = useState<any[]>([]);
   const [dbReady, setDbReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [debugLog, setDebugLog] = useState<string[]>([]);
+
+  const addDebugLog = (message: string) => {
+    setDebugLog(prev => [...prev.slice(-10), `${new Date().toLocaleTimeString()}: ${message}`]);
+  };
 
   useEffect(() => {
+    addDebugLog('App starting');
     initDB();
     loadFileOnLaunch();
   }, []);
 
   const loadFileOnLaunch = async () => {
+    addDebugLog('loadFileOnLaunch started');
     // Handle launch queue for file associations
     if ('launchQueue' in window) {
+      addDebugLog('launchQueue found');
       (window as any).launchQueue.setConsumer(async (launchParams: any) => {
+        addDebugLog(`launchParams received: ${launchParams.files?.length || 0} files`);
         if (launchParams.files && launchParams.files.length) {
           for (const fileHandle of launchParams.files) {
             const file = await fileHandle.getFile();
             const content = await file.text();
+            addDebugLog(`File loaded: ${file.name}, size: ${content.length}`);
             await saveCsvToIndexedDB(file.name, content);
             initDB();
           }
         }
       });
+    } else {
+      addDebugLog('launchQueue not found');
     }
   };
 
   const saveCsvToIndexedDB = async (filename: string, content: string) => {
     try {
+      addDebugLog(`Saving ${filename} to IndexedDB`);
       const db = await openDB();
       const tx = db.transaction(['csvFiles'], 'readwrite');
       const store = tx.objectStore('csvFiles');
       await store.put({ filename, content, timestamp: Date.now() });
+      addDebugLog(`Saved ${filename} successfully`);
     } catch (error) {
-      console.error('Error saving CSV to IndexedDB:', error);
+      addDebugLog(`Error saving ${filename}: ${error}`);
     }
   };
 
   const initDB = async () => {
     try {
+      addDebugLog('Initializing DB');
       const db = await openDB();
       const tx = db.transaction(['csvFiles'], 'readonly');
       const store = tx.objectStore('csvFiles');
       const allFiles = await getAllFromStore(store);
       setFiles(allFiles);
       setDbReady(true);
+      addDebugLog(`DB ready, found ${allFiles.length} files`);
     } catch (error: any) {
+      addDebugLog(`DB init error: ${error.message}`);
       setError(error.message);
       setDbReady(true);
     }
@@ -114,6 +131,9 @@ const App: React.FC = () => {
                   <h1>Loading...</h1>
                   <p>Initializing app storage...</p>
                   {error && <p style={{ color: 'red' }}>{error}</p>}
+                  <div style={{ marginTop: '20px', textAlign: 'left', fontSize: '12px' }}>
+                    {debugLog.map((log, i) => <div key={i}>{log}</div>)}
+                  </div>
                 </IonCol>
               </IonRow>
             </IonGrid>
