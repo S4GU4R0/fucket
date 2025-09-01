@@ -159,7 +159,12 @@ const App: React.FC = () => {
               <Settings />
             </Route>
             <Route exact path="/">
-              <Budgets />
+              <>
+                <div style={{ position: 'fixed', bottom: '70px', right: '10px', background: 'white', border: '1px solid black', padding: '5px', fontSize: '10px', maxHeight: '200px', overflow: 'auto', zIndex: 1000 }}>
+                  {debugLog.map((log, i) => <div key={i}>{log}</div>)}
+                </div>
+                <Budgets />
+              </>
             </Route>
           </IonRouterOutlet>
           <IonTabBar slot="bottom">
