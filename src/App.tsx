@@ -128,9 +128,6 @@ const App: React.FC = () => {
       <IonReactRouter basename="/fucket">
         <IonTabs>
           <IonRouterOutlet>
-            <Route exact path="/home">
-              <Home />
-            </Route>
             <Route path="/:id" component={BudgetDetails} />
             <Route exact path="/templates">
               <Templates />
@@ -146,11 +143,7 @@ const App: React.FC = () => {
             </Route>
           </IonRouterOutlet>
           <IonTabBar slot="bottom">
-            <IonTabButton tab="home" href="/">
-              <IonIcon icon={home} />
-              <IonLabel>Home</IonLabel>
-            </IonTabButton>
-            <IonTabButton tab="budgets" href="/budgets">
+            <IonTabButton tab="budgets" href="/">
               <IonIcon icon={document} />
               <IonLabel>Budgets</IonLabel>
             </IonTabButton>
