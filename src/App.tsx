@@ -131,10 +131,7 @@ const App: React.FC = () => {
             <Route exact path="/home">
               <Home />
             </Route>
-            <Route exact path="/budgets">
-              <Budgets />
-            </Route>
-            <Route path="/budget/:id" component={BudgetDetails} />
+            <Route path="/:id" component={BudgetDetails} />
             <Route exact path="/templates">
               <Templates />
             </Route>
@@ -145,7 +142,7 @@ const App: React.FC = () => {
               <Settings />
             </Route>
             <Route exact path="/">
-              <Home />
+              <Budgets />
             </Route>
           </IonRouterOutlet>
           <IonTabBar slot="bottom">
