@@ -37,7 +37,35 @@ const App: React.FC = () => {
 
   useEffect(() => {
     initDB();
+    loadFileOnLaunch();
   }, []);
+
+  const loadFileOnLaunch = async () => {
+    // Handle launch queue for file associations
+    if ('launchQueue' in window) {
+      (window as any).launchQueue.setConsumer(async (launchParams: any) => {
+        if (launchParams.files && launchParams.files.length) {
+          for (const fileHandle of launchParams.files) {
+            const file = await fileHandle.getFile();
+            const content = await file.text();
+            await saveCsvToIndexedDB(file.name, content);
+            initDB();
+          }
+        }
+      });
+    }
+  };
+
+  const saveCsvToIndexedDB = async (filename: string, content: string) => {
+    try {
+      const db = await openDB();
+      const tx = db.transaction(['csvFiles'], 'readwrite');
+      const store = tx.objectStore('csvFiles');
+      await store.put({ filename, content, timestamp: Date.now() });
+    } catch (error) {
+      console.error('Error saving CSV to IndexedDB:', error);
+    }
+  };
 
   const initDB = async () => {
     try {
@@ -117,11 +145,11 @@ const App: React.FC = () => {
               <Settings />
             </Route>
             <Route exact path="/">
-              <Redirect to="/home" />
+              <Redirect to="/" />
             </Route>
           </IonRouterOutlet>
           <IonTabBar slot="bottom">
-            <IonTabButton tab="home" href="/home">
+            <IonTabButton tab="home" href="/">
               <IonIcon icon={home} />
               <IonLabel>Home</IonLabel>
             </IonTabButton>
